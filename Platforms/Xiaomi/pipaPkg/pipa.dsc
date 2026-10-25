@@ -50,7 +50,7 @@
   # SMBIOS
   #
   gSiliciumPkgTokenSpaceGuid.PcdSmbiosSystemManufacturer|"Xiaomi"
-  gSiliciumPkgTokenSpaceGuid.PcdSmbiosSystemModel|"Pad 6"
+  gSiliciumPkgTokenSpaceGuid.PcdSmbiosSystemModel|"Pad 6 USB Lab"
   gSiliciumPkgTokenSpaceGuid.PcdSmbiosSystemRetailModel|"pipa"
   gSiliciumPkgTokenSpaceGuid.PcdSmbiosSystemRetailSku|"23043RP34G"
   gSiliciumPkgTokenSpaceGuid.PcdSmbiosBoardModel|"M82"

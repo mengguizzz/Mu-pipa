@@ -18,6 +18,10 @@
 #include <Library/BootGraphics.h>
 #include <Library/PrintLib.h>
 
+#include <Protocol/SimpleFileSystem.h>
+#include <Protocol/Usb2HostController.h>
+#include <Protocol/UsbIo.h>
+
 #include <Configuration/BootDevices.h>
 
 #include "PlatformBootManager.h"
@@ -28,6 +32,72 @@
 STATIC CHAR16 *ComboMessage = NULL;
 STATIC UINTN   XPos         = 0;
 STATIC UINTN   YPos         = 0;
+
+STATIC
+VOID
+ShowUsbProbe (
+  VOID
+  )
+{
+  EFI_STATUS  Status;
+  EFI_HANDLE  *Handles;
+  UINTN       HandleCount;
+  UINTN       UsbHcCount;
+  UINTN       UsbIoCount;
+  UINTN       FileSystemCount;
+
+  UsbHcCount       = 0;
+  UsbIoCount       = 0;
+  FileSystemCount  = 0;
+  Handles          = NULL;
+
+  Status = gBS->LocateHandleBuffer (
+                  ByProtocol,
+                  &gEfiUsb2HcProtocolGuid,
+                  NULL,
+                  &HandleCount,
+                  &Handles
+                  );
+  if (!EFI_ERROR (Status)) {
+    UsbHcCount = HandleCount;
+    FreePool (Handles);
+  }
+
+  Handles = NULL;
+  Status = gBS->LocateHandleBuffer (
+                  ByProtocol,
+                  &gEfiUsbIoProtocolGuid,
+                  NULL,
+                  &HandleCount,
+                  &Handles
+                  );
+  if (!EFI_ERROR (Status)) {
+    UsbIoCount = HandleCount;
+    FreePool (Handles);
+  }
+
+  Handles = NULL;
+  Status = gBS->LocateHandleBuffer (
+                  ByProtocol,
+                  &gEfiSimpleFileSystemProtocolGuid,
+                  NULL,
+                  &HandleCount,
+                  &Handles
+                  );
+  if (!EFI_ERROR (Status)) {
+    FileSystemCount = HandleCount;
+    FreePool (Handles);
+  }
+
+  Print (
+    L"\r\nMu-pipa USB lab: HC=%u USB-IO=%u filesystems=%u\r\n",
+    UsbHcCount,
+    UsbIoCount,
+    FileSystemCount
+    );
+  Print (L"Insert USB keyboard/storage, wait, then open Boot Manager or UEFI Shell.\r\n");
+  gBS->Stall (3 * 1000 * 1000);
+}
 
 VOID
 EFIAPI
@@ -155,6 +225,11 @@ PlatformBootManagerAfterConsole ()
   if (EFI_ERROR (Status)) {
     DEBUG ((EFI_D_ERROR, "%a: Failed to Display Boot Logo! Status = %r\n", __FUNCTION__, Status));
   }
+
+  // Connect newly attached USB devices and expose a compact diagnostic line
+  // before entering the visible boot menu.
+  EfiBootManagerConnectAll ();
+  ShowUsbProbe ();
 
   // Verify Screen Resolution
   if (!ScreenWidth || !ScreenHeight) {

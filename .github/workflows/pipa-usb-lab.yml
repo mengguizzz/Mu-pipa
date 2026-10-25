@@ -1,0 +1,71 @@
+name: Build Mu-pipa USB lab
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: UEFI build mode
+        type: choice
+        options:
+          - RELEASE
+          - DEBUG
+        default: RELEASE
+  push:
+    branches:
+      - pipa-usb-lab
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+
+    steps:
+      - name: Check out source and submodules
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 1
+
+      - name: Install build environment
+        env:
+          CI_BUILD: "false"
+        run: bash ./setup_env.sh -p apt
+
+      - name: Build Mu-pipa
+        env:
+          MODE: ${{ inputs.mode || 'RELEASE' }}
+        run: |
+          set -euxo pipefail
+          bash ./build_uefi.sh -d pipa -r "${MODE}" -c
+          test -s Mu-pipa.img
+          sha256sum Mu-pipa.img | tee Mu-pipa.img.sha256
+          ls -lh Mu-pipa.img
+
+      - name: Inspect Android boot image
+        run: |
+          python3 - <<'PY'
+          import struct
+          from pathlib import Path
+          p=Path("Mu-pipa.img")
+          b=p.read_bytes()[:4096]
+          assert b[:8] == b"ANDROID!", b[:8]
+          print("size", p.stat().st_size)
+          print("kernel_size", struct.unpack_from("<I", b, 8)[0])
+          print("ramdisk_size", struct.unpack_from("<I", b, 12)[0])
+          print("header_version", struct.unpack_from("<I", b, 40)[0])
+          PY
+
+      - name: Upload Mu-pipa image
+        uses: actions/upload-artifact@v4
+        with:
+          name: Mu-pipa-usb-lab-${{ inputs.mode || 'RELEASE' }}-${{ github.run_number }}
+          path: |
+            Mu-pipa.img
+            Mu-pipa.img.sha256
+            Flash-Lab.ps1
+          if-no-files-found: error
+          compression-level: 9
+          retention-days: 14

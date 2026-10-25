@@ -81,9 +81,9 @@
   #
   # Boot Manager
   #
-  gEfiMdePkgTokenSpaceGuid.PcdPlatformBootTimeOut|3
+  gEfiMdePkgTokenSpaceGuid.PcdPlatformBootTimeOut|15
   gEfiMdeModulePkgTokenSpaceGuid.PcdBootManagerMenuFile|{ 0x88, 0x47, 0x3D, 0x64, 0xC8, 0x63, 0xD2, 0x40, 0xBD, 0x7A, 0x68, 0x42, 0xE6, 0x68, 0x50, 0xD1 }
-  gEfiMdeModulePkgTokenSpaceGuid.PcdBootManagerInBootOrder|FALSE
+  gEfiMdeModulePkgTokenSpaceGuid.PcdBootManagerInBootOrder|TRUE
   gEfiMdeModulePkgTokenSpaceGuid.PcdPlatformRecoverySupport|FALSE
 
   #
@@ -436,7 +436,9 @@
   #
   MdeModulePkg/Bus/Usb/UsbBusDxe/UsbBusDxe.inf
   MdeModulePkg/Bus/Usb/UsbKbDxe/UsbKbDxe.inf
+  MdeModulePkg/Bus/Usb/UsbMouseAbsolutePointerDxe/UsbMouseAbsolutePointerDxe.inf
   MdeModulePkg/Bus/Usb/UsbMassStorageDxe/UsbMassStorageDxe.inf
+  ShellPkg/Application/Shell/Shell.inf
 
   #
   # Graphics
