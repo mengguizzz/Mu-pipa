@@ -51,3 +51,6 @@
 [Protocols]
   gKeypadDeviceProtocolGuid
   gEfiSimpleTextInputExProtocolGuid
+  gEfiSimpleFileSystemProtocolGuid
+  gEfiUsb2HcProtocolGuid
+  gEfiUsbIoProtocolGuid
