@@ -245,6 +245,9 @@
   # USB Libraries
   #
   UefiUsbLib|MdePkg/Library/UefiUsbLib/UefiUsbLib.inf
+  ShellLib|ShellPkg/Library/UefiShellLib/UefiShellLib.inf
+  ShellCommandLib|ShellPkg/Library/UefiShellCommandLib/UefiShellCommandLib.inf
+  HandleParsingLib|ShellPkg/Library/UefiHandleParsingLib/UefiHandleParsingLib.inf
 
   #
   # Security Libraries
