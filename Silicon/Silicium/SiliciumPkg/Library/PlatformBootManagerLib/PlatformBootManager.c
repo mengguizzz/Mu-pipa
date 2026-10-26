@@ -35,6 +35,45 @@ STATIC UINTN   YPos         = 0;
 
 STATIC
 VOID
+AttachInputDevicesToConsole (
+  VOID
+  )
+{
+  EFI_STATUS  Status;
+  EFI_HANDLE  *Handles;
+  UINTN       HandleCount;
+  UINTN       Index;
+  VOID        *DevicePath;
+
+  Handles = NULL;
+  Status  = gBS->LocateHandleBuffer (
+                   ByProtocol,
+                   &gEfiSimpleTextInProtocolGuid,
+                   NULL,
+                   &HandleCount,
+                   &Handles
+                   );
+  if (EFI_ERROR (Status)) {
+    return;
+  }
+
+  for (Index = 0; Index < HandleCount; Index++) {
+    DevicePath = NULL;
+    Status     = gBS->HandleProtocol (
+                        Handles[Index],
+                        &gEfiDevicePathProtocolGuid,
+                        &DevicePath
+                        );
+    if (!EFI_ERROR (Status) && (DevicePath != NULL)) {
+      EfiBootManagerUpdateConsoleVariable (ConIn, DevicePath, NULL);
+    }
+  }
+
+  FreePool (Handles);
+}
+
+STATIC
+VOID
 ShowUsbProbe (
   VOID
   )
@@ -246,7 +285,8 @@ PlatformBootManagerAfterConsole ()
   // before entering the visible boot menu.
   EfiBootManagerConnectAll ();
   gBS->Stall (1 * 1000 * 1000);
-  EfiBootManagerConnectAllConsoles ();
+  AttachInputDevicesToConsole ();
+  EfiBootManagerConnectAllDefaultConsoles ();
   ShowUsbProbe ();
 
   // Verify Screen Resolution

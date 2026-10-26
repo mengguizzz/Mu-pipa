@@ -54,3 +54,5 @@
   gEfiSimpleFileSystemProtocolGuid
   gEfiUsb2HcProtocolGuid
   gEfiUsbIoProtocolGuid
+  gEfiSimpleTextInProtocolGuid
+  gEfiDevicePathProtocolGuid
