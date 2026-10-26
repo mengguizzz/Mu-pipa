@@ -18,7 +18,7 @@ Build images with the `Build Mu-pipa USB lab` GitHub Actions workflow.
 ## Expected diagnostic line
 
 ```text
-Mu-pipa USB lab: HC=N USB-IO=N filesystems=N
+Mu-pipa USB lab: HC=N USB-IO=N filesystems=N inputs=N
 ```
 
 Insert an OTG keyboard/storage and reboot:
@@ -27,6 +27,7 @@ Insert an OTG keyboard/storage and reboot:
 - `HC` increases but `USB-IO` stays zero: controller exists, device enumeration fails.
 - `USB-IO` increases but `filesystems` does not: storage or partition/FAT problem.
 - `filesystems` increases: UEFI can see the drive; open Boot Manager or UEFI Shell.
+- `inputs` increases but keys do not work: console binding still failed.
 
 ## Flash
 

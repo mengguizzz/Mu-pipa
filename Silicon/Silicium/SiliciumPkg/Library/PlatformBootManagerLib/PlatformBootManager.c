@@ -45,10 +45,12 @@ ShowUsbProbe (
   UINTN       UsbHcCount;
   UINTN       UsbIoCount;
   UINTN       FileSystemCount;
+  UINTN       InputCount;
 
   UsbHcCount       = 0;
   UsbIoCount       = 0;
   FileSystemCount  = 0;
+  InputCount       = 0;
   Handles          = NULL;
 
   Status = gBS->LocateHandleBuffer (
@@ -89,11 +91,25 @@ ShowUsbProbe (
     FreePool (Handles);
   }
 
+  Handles = NULL;
+  Status  = gBS->LocateHandleBuffer (
+                   ByProtocol,
+                   &gEfiSimpleTextInputExProtocolGuid,
+                   NULL,
+                   &HandleCount,
+                   &Handles
+                   );
+  if (!EFI_ERROR (Status)) {
+    InputCount = HandleCount;
+    FreePool (Handles);
+  }
+
   Print (
-    L"\r\nMu-pipa USB lab: HC=%u USB-IO=%u filesystems=%u\r\n",
+    L"\r\nMu-pipa USB lab: HC=%u USB-IO=%u filesystems=%u inputs=%u\r\n",
     UsbHcCount,
     UsbIoCount,
-    FileSystemCount
+    FileSystemCount,
+    InputCount
     );
   Print (L"Insert USB keyboard/storage, wait, then open Boot Manager or UEFI Shell.\r\n");
   gBS->Stall (3 * 1000 * 1000);
@@ -229,6 +245,8 @@ PlatformBootManagerAfterConsole ()
   // Connect newly attached USB devices and expose a compact diagnostic line
   // before entering the visible boot menu.
   EfiBootManagerConnectAll ();
+  gBS->Stall (1 * 1000 * 1000);
+  EfiBootManagerConnectAllConsoles ();
   ShowUsbProbe ();
 
   // Verify Screen Resolution
