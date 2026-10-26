@@ -9,6 +9,8 @@ Changes from upstream `pocketblue-pipa`:
 - Include UEFI Shell for `map -r`, `dh -p SimpleFileSystem`, and `ls`.
 - Include the USB absolute-pointer mouse driver.
 - Print USB host-controller, USB I/O, and filesystem handle counts at boot.
+- Refresh boot options after USB enumeration and automatically select the first
+  UEFI-bootable USB device for the next boot.
 - Identify the platform as `Pad 6 USB Lab` in SMBIOS.
 - Use the SM8250 `UsbConfigDxe.hostmode.efi` variant from the tested bitra
   platform instead of pipa's `patched.efi` USB configuration.
@@ -28,6 +30,8 @@ Insert an OTG keyboard/storage and reboot:
 - `USB-IO` increases but `filesystems` does not: storage or partition/FAT problem.
 - `filesystems` increases: UEFI can see the drive; open Boot Manager or UEFI Shell.
 - `inputs` increases but keys do not work: console binding still failed.
+- A `USB:` line appears under `boot options`: UEFI found an EFI loader on the
+  inserted USB device and selected it for the next boot.
 
 ## Flash
 

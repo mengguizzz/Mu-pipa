@@ -34,6 +34,103 @@ STATIC UINTN   XPos         = 0;
 STATIC UINTN   YPos         = 0;
 
 STATIC
+BOOLEAN
+IsUsbDevicePath (
+  IN EFI_DEVICE_PATH_PROTOCOL  *DevicePath
+  )
+{
+  EFI_DEVICE_PATH_PROTOCOL  *Node;
+
+  for (Node = DevicePath; !IsDevicePathEnd (Node); Node = NextDevicePathNode (Node)) {
+    if (DevicePathType (Node) != MESSAGING_DEVICE_PATH) {
+      continue;
+    }
+
+    if ((DevicePathSubType (Node) == MSG_USB) ||
+        (DevicePathSubType (Node) == MSG_USB_CLASS) ||
+        (DevicePathSubType (Node) == MSG_USB_WWID))
+    {
+      return TRUE;
+    }
+  }
+
+  return FALSE;
+}
+
+STATIC
+VOID
+SelectUsbBootOption (
+  VOID
+  )
+{
+  EFI_STATUS                    Status;
+  EFI_BOOT_MANAGER_LOAD_OPTION  *LoadOptions;
+  EFI_BOOT_MANAGER_LOAD_OPTION  *UsbBootOption;
+  UINTN                         LoadOptionCount;
+  UINTN                         Index;
+
+  UsbBootOption = NULL;
+
+  // USB storage is connected after the default boot options are registered.
+  // Refresh them so a newly inserted UEFI-bootable drive becomes selectable.
+  EfiBootManagerRefreshAllBootOption ();
+
+  LoadOptions = EfiBootManagerGetLoadOptions (
+                  &LoadOptionCount,
+                  LoadOptionTypeBoot
+                  );
+  if (LoadOptions == NULL) {
+    return;
+  }
+
+  Print (L"Mu-pipa USB lab: boot options=%u\r\n", (UINT32)LoadOptionCount);
+  for (Index = 0; Index < LoadOptionCount; Index++) {
+    if ((LoadOptions[Index].FilePath != NULL) &&
+        IsUsbDevicePath (LoadOptions[Index].FilePath))
+    {
+      Print (
+        L"  [%04x] USB: %s\r\n",
+        (UINT32)LoadOptions[Index].OptionNumber,
+        (LoadOptions[Index].Description != NULL) ?
+        LoadOptions[Index].Description : L"(unnamed)"
+        );
+      if (UsbBootOption == NULL) {
+        UsbBootOption = &LoadOptions[Index];
+      }
+    } else {
+      Print (
+        L"  [%04x] %s\r\n",
+        (UINT32)LoadOptions[Index].OptionNumber,
+        (LoadOptions[Index].Description != NULL) ?
+        LoadOptions[Index].Description : L"(unnamed)"
+        );
+    }
+  }
+
+  if (UsbBootOption != NULL) {
+    Status = gRT->SetVariable (
+                    L"BootNext",
+                    &gEfiGlobalVariableGuid,
+                    EFI_VARIABLE_NON_VOLATILE |
+                    EFI_VARIABLE_BOOTSERVICE_ACCESS |
+                    EFI_VARIABLE_RUNTIME_ACCESS,
+                    sizeof (UINT16),
+                    &UsbBootOption->OptionNumber
+                    );
+    if (!EFI_ERROR (Status)) {
+      Print (
+        L"Mu-pipa USB lab: auto-selecting USB boot option [%04x] %s\r\n",
+        (UINT32)UsbBootOption->OptionNumber,
+        (UsbBootOption->Description != NULL) ?
+        UsbBootOption->Description : L"(unnamed)"
+        );
+    }
+  }
+
+  EfiBootManagerFreeLoadOptions (LoadOptions, LoadOptionCount);
+}
+
+STATIC
 VOID
 AttachInputDevicesToConsole (
   VOID
@@ -287,6 +384,7 @@ PlatformBootManagerAfterConsole ()
   gBS->Stall (1 * 1000 * 1000);
   AttachInputDevicesToConsole ();
   EfiBootManagerConnectAllDefaultConsoles ();
+  SelectUsbBootOption ();
   ShowUsbProbe ();
 
   // Verify Screen Resolution
