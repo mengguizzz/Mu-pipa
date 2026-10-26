@@ -18,7 +18,6 @@
 #include <Library/BootGraphics.h>
 #include <Library/PrintLib.h>
 
-#include <Guid/GlobalVariable.h>
 #include <Protocol/SimpleFileSystem.h>
 #include <Protocol/Usb2HostController.h>
 #include <Protocol/UsbIo.h>
@@ -33,6 +32,8 @@
 STATIC CHAR16 *ComboMessage = NULL;
 STATIC UINTN   XPos         = 0;
 STATIC UINTN   YPos         = 0;
+
+#define USB_BOOT_MENU_TIMEOUT  (10 * 1000 * 1000 * 10)
 
 STATIC
 BOOLEAN
@@ -60,17 +61,61 @@ IsUsbDevicePath (
 
 STATIC
 VOID
-SelectUsbBootOption (
+DrawBootMenu (
+  IN EFI_BOOT_MANAGER_LOAD_OPTION  *LoadOptions,
+  IN UINTN                         LoadOptionCount,
+  IN UINTN                         SelectedIndex
+  )
+{
+  EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL  *ConOut;
+  UINTN                            Index;
+
+  ConOut = gST->ConOut;
+  ConOut->SetAttribute (ConOut, EFI_LIGHTGRAY | EFI_BACKGROUND_BLACK);
+  ConOut->ClearScreen (ConOut);
+
+  ConOut->SetAttribute (ConOut, EFI_CYAN | EFI_BACKGROUND_BLACK);
+  Print (L"\r\n  Mu-pipa Boot Menu\r\n");
+  ConOut->SetAttribute (ConOut, EFI_LIGHTGRAY | EFI_BACKGROUND_BLACK);
+  Print (
+    L"  Volume Up/Down: select    Enter: boot    Timeout: 10 seconds\r\n\r\n"
+    );
+
+  for (Index = 0; Index < LoadOptionCount; Index++) {
+    if (Index == SelectedIndex) {
+      ConOut->SetAttribute (ConOut, EFI_WHITE | EFI_BACKGROUND_BLUE);
+    } else {
+      ConOut->SetAttribute (ConOut, EFI_LIGHTGRAY | EFI_BACKGROUND_BLACK);
+    }
+
+    Print (
+      L"  %c %s%s\r\n",
+      (Index == SelectedIndex) ? L'>' : L' ',
+      ((LoadOptions[Index].FilePath != NULL) &&
+       IsUsbDevicePath (LoadOptions[Index].FilePath)) ? L"[USB] " : L"",
+      (LoadOptions[Index].Description != NULL) ?
+      LoadOptions[Index].Description : L"(unnamed)"
+      );
+  }
+
+  ConOut->SetAttribute (ConOut, EFI_LIGHTGRAY | EFI_BACKGROUND_BLACK);
+}
+
+STATIC
+VOID
+ShowBootMenu (
   VOID
   )
 {
   EFI_STATUS                    Status;
   EFI_BOOT_MANAGER_LOAD_OPTION  *LoadOptions;
-  EFI_BOOT_MANAGER_LOAD_OPTION  *UsbBootOption;
+  EFI_EVENT                     TimerEvent;
+  EFI_EVENT                     WaitEvents[2];
+  EFI_INPUT_KEY                 Key;
   UINTN                         LoadOptionCount;
+  UINTN                         SelectedIndex;
+  UINTN                         WaitIndex;
   UINTN                         Index;
-
-  UsbBootOption = NULL;
 
   // USB storage is connected after the default boot options are registered.
   // Refresh them so a newly inserted UEFI-bootable drive becomes selectable.
@@ -80,53 +125,80 @@ SelectUsbBootOption (
                   &LoadOptionCount,
                   LoadOptionTypeBoot
                   );
-  if (LoadOptions == NULL) {
+  if ((LoadOptions == NULL) || (LoadOptionCount == 0)) {
     return;
   }
 
-  Print (L"Mu-pipa USB lab: boot options=%u\r\n", (UINT32)LoadOptionCount);
+  SelectedIndex = 0;
   for (Index = 0; Index < LoadOptionCount; Index++) {
     if ((LoadOptions[Index].FilePath != NULL) &&
         IsUsbDevicePath (LoadOptions[Index].FilePath))
     {
-      Print (
-        L"  [%04x] USB: %s\r\n",
-        (UINT32)LoadOptions[Index].OptionNumber,
-        (LoadOptions[Index].Description != NULL) ?
-        LoadOptions[Index].Description : L"(unnamed)"
-        );
-      if (UsbBootOption == NULL) {
-        UsbBootOption = &LoadOptions[Index];
-      }
-    } else {
-      Print (
-        L"  [%04x] %s\r\n",
-        (UINT32)LoadOptions[Index].OptionNumber,
-        (LoadOptions[Index].Description != NULL) ?
-        LoadOptions[Index].Description : L"(unnamed)"
-        );
+      SelectedIndex = Index;
+      break;
     }
   }
 
-  if (UsbBootOption != NULL) {
-    Status = gRT->SetVariable (
-                    L"BootNext",
-                    &gEfiGlobalVariableGuid,
-                    EFI_VARIABLE_NON_VOLATILE |
-                    EFI_VARIABLE_BOOTSERVICE_ACCESS |
-                    EFI_VARIABLE_RUNTIME_ACCESS,
-                    sizeof (UINT16),
-                    &UsbBootOption->OptionNumber
-                    );
-    if (!EFI_ERROR (Status)) {
-      Print (
-        L"Mu-pipa USB lab: auto-selecting USB boot option [%04x] %s\r\n",
-        (UINT32)UsbBootOption->OptionNumber,
-        (UsbBootOption->Description != NULL) ?
-        UsbBootOption->Description : L"(unnamed)"
-        );
+  TimerEvent = NULL;
+  Status     = gBS->CreateEvent (
+                      EVT_TIMER,
+                      TPL_CALLBACK,
+                      NULL,
+                      NULL,
+                      &TimerEvent
+                      );
+  if (!EFI_ERROR (Status)) {
+    Status = gBS->SetTimer (TimerEvent, TimerRelative, USB_BOOT_MENU_TIMEOUT);
+    if (EFI_ERROR (Status)) {
+      gBS->CloseEvent (TimerEvent);
+      TimerEvent = NULL;
     }
   }
+
+  DrawBootMenu (LoadOptions, LoadOptionCount, SelectedIndex);
+
+  if ((TimerEvent != NULL) && (gST->ConIn != NULL) &&
+      (gST->ConIn->WaitForKey != NULL))
+  {
+    WaitEvents[0] = gST->ConIn->WaitForKey;
+    WaitEvents[1] = TimerEvent;
+
+    while (TRUE) {
+      Status = gBS->WaitForEvent (2, WaitEvents, &WaitIndex);
+      if (EFI_ERROR (Status) || (WaitIndex == 1)) {
+        break;
+      }
+
+      Status = gST->ConIn->ReadKeyStroke (gST->ConIn, &Key);
+      if (EFI_ERROR (Status)) {
+        continue;
+      }
+
+      if (Key.ScanCode == SCAN_UP) {
+        SelectedIndex = (SelectedIndex + LoadOptionCount - 1) % LoadOptionCount;
+      } else if (Key.ScanCode == SCAN_DOWN) {
+        SelectedIndex = (SelectedIndex + 1) % LoadOptionCount;
+      } else if (Key.UnicodeChar == CHAR_CARRIAGE_RETURN) {
+        DrawBootMenu (LoadOptions, LoadOptionCount, SelectedIndex);
+        break;
+      } else {
+        continue;
+      }
+
+      gBS->SetTimer (TimerEvent, TimerRelative, USB_BOOT_MENU_TIMEOUT);
+      DrawBootMenu (LoadOptions, LoadOptionCount, SelectedIndex);
+      gBS->Stall (200 * 1000);
+    }
+  } else {
+    gBS->Stall (USB_BOOT_MENU_TIMEOUT / 10);
+  }
+
+  if (TimerEvent != NULL) {
+    gBS->CloseEvent (TimerEvent);
+  }
+
+  DrawBootMenu (LoadOptions, LoadOptionCount, SelectedIndex);
+  EfiBootManagerBoot (&LoadOptions[SelectedIndex]);
 
   EfiBootManagerFreeLoadOptions (LoadOptions, LoadOptionCount);
 }
@@ -385,8 +457,8 @@ PlatformBootManagerAfterConsole ()
   gBS->Stall (1 * 1000 * 1000);
   AttachInputDevicesToConsole ();
   EfiBootManagerConnectAllDefaultConsoles ();
-  SelectUsbBootOption ();
   ShowUsbProbe ();
+  ShowBootMenu ();
 
   // Verify Screen Resolution
   if (!ScreenWidth || !ScreenHeight) {
