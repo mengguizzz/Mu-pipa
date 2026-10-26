@@ -47,6 +47,7 @@
 
 [Guids]
   gEfiEndOfDxeEventGroupGuid
+  gEfiGlobalVariableGuid
 
 [Protocols]
   gKeypadDeviceProtocolGuid

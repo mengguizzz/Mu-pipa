@@ -18,6 +18,7 @@
 #include <Library/BootGraphics.h>
 #include <Library/PrintLib.h>
 
+#include <Guid/GlobalVariable.h>
 #include <Protocol/SimpleFileSystem.h>
 #include <Protocol/Usb2HostController.h>
 #include <Protocol/UsbIo.h>
@@ -46,9 +47,9 @@ IsUsbDevicePath (
       continue;
     }
 
-    if ((DevicePathSubType (Node) == MSG_USB) ||
-        (DevicePathSubType (Node) == MSG_USB_CLASS) ||
-        (DevicePathSubType (Node) == MSG_USB_WWID))
+    if ((DevicePathSubType (Node) == MSG_USB_DP) ||
+        (DevicePathSubType (Node) == MSG_USB_CLASS_DP) ||
+        (DevicePathSubType (Node) == MSG_USB_WWID_DP))
     {
       return TRUE;
     }
