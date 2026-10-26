@@ -34,6 +34,15 @@ jobs:
           CI_BUILD: "false"
         run: bash ./setup_env.sh -p apt
 
+      - name: Apply SM8250 USB host-mode configuration
+        run: |
+          set -euxo pipefail
+          hostmode=Binaries/bitra/QcomPkg/Drivers/UsbConfigDxe/UsbConfigDxe.hostmode.efi
+          target=Binaries/pipa/QcomPkg/Drivers/UsbConfigDxe/UsbConfigDxe.patched.efi
+          test -s "${hostmode}"
+          cp -f "${hostmode}" "${target}"
+          sha256sum "${hostmode}" "${target}"
+
       - name: Build Mu-pipa
         env:
           MODE: ${{ inputs.mode || 'RELEASE' }}
